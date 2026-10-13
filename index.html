@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blinkit FC I2 Indore - Multi-Device Live Attendance System</title>
+  
+  <!-- SheetJS Library Excel Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Firebase SDK (Live Cloud Database) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --blinkit-yellow: #FFC200;
+      --blinkit-dark: #121212;
+      --blinkit-light: #F4F6F8;
+      --blinkit-green: #037A38;
+      --blinkit-red: #D32F2F;
+      --blinkit-blue: #0288D1;
+      --border-color: #E0E0E0;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--blinkit-light); margin: 0; padding: 12px; color: var(--blinkit-dark); }
+
+    /* PERFECT HEADER DESIGN */
+    header {
+      background: var(--blinkit-yellow);
+      color: var(--blinkit-dark);
+      padding: 14px 16px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-bottom: 4px solid var(--blinkit-dark);
+    }
+
+    .header-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .brand-badges-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .brand-badge {
+      background: #121212;
+      color: white;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+    }
+
+    .badge-zomato { background: #E23744; color: white; }
+
+    .live-clock {
+      font-size: 11px;
+      font-weight: 800;
+      background: var(--blinkit-dark);
+      color: var(--blinkit-yellow);
+      padding: 5px 10px;
+      border-radius: 20px;
+    }
+
+    .brand-logo-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 6px 0;
+    }
+
+    .main-blinkit-logo-box {
+      font-size: 32px;
+      font-weight: 900;
+      color: #121212;
+      background: #FFFFFF;
+      padding: 2px 14px;
+      border-radius: 6px;
+      letter-spacing: -1px;
+      display: inline-block;
+      border: 2px solid #121212;
+    }
+    .main-blinkit-logo-box span { color: #037A38; }
+
+    .header-subtitle {
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      background: var(--blinkit-dark);
+      color: white;
+      padding: 4px 14px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+
+    .server-status {
+      font-size: 10px;
+      font-weight: bold;
+      color: #037A38;
+      background: #E8F5E9;
+      padding: 3px 8px;
+      border-radius: 10px;
+      display: inline-block;
+      margin-top: 4px;
+    }
+
+    /* NAV TABS */
+    .nav-tabs { display: flex; gap: 8px; margin-bottom: 12px; justify-content: center; flex-wrap: wrap; }
+    .tab-btn { background: #E0E0E0; border: none; padding: 9px 16px; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 12px; }
+    .tab-btn.active { background: var(--blinkit-dark); color: var(--blinkit-yellow); }
+
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    /* DASHBOARD GRID (HOMEPAGE) */
+    .dashboard-container { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .dept-card-home { background: white; border: 1px solid var(--border-color); border-left: 6px solid var(--blinkit-yellow); padding: 16px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+    .dept-card-home:hover { transform: translateY(-3px); border-left-color: var(--blinkit-green); }
+    .dept-card-title { font-size: 15px; font-weight: 800; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .dept-card-stats { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; background: #F9F9F9; padding: 8px 10px; border-radius: 6px; }
+
+    /* CARD & TABLES */
+    .card { background: white; padding: 14px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; border: 1px solid var(--border-color); }
+    label { font-weight: 600; display: block; margin-top: 6px; font-size: 11px; color: #555; }
+    input, select { padding: 7px; margin-top: 2px; border: 1px solid #CCC; border-radius: 5px; font-size: 11px; width: 100%; }
+
+    .btn-main { background: var(--blinkit-yellow); color: var(--blinkit-dark); border: none; padding: 9px 14px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .btn-green { background: var(--blinkit-green); color: white; border: none; padding: 6px 12px; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 11px; }
+    .btn-red { background: var(--blinkit-red); color: white; border: none; padding: 6px 12px; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 11px; }
+    .call-btn { background: #0288D1; color: white; text-decoration: none; padding: 3px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; display: inline-block; margin-top: 2px; }
+
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; }
+    th, td { border: 1px solid #DDD; padding: 7px; text-align: center; }
+    th { background-color: var(--blinkit-dark); color: white; }
+
+    tr.active-shift-row { background-color: #FFF9C4 !important; font-weight: 600; }
+    .shift-tag { font-size: 9px; padding: 2px 5px; border-radius: 3px; background: #EEE; display: inline-block; }
+    .active-shift-tag { background: var(--blinkit-yellow); color: #000; font-weight: bold; }
+    .role-badge { background: #E1F5FE; color: #0277BD; padding: 2px 5px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-top-row">
+      <div class="brand-badges-group">
+        <div class="brand-badge">ETERNAL</div>
+        <div class="brand-badge badge-zomato">ZOMATO</div>
+      </div>
+      <div class="live-clock" id="liveClockDisplay"> Loading...</div>
+    </div>
+
+    <div class="brand-logo-container">
+      <div class="main-blinkit-logo-box">blink<span>it</span></div>
+    </div>
+
+    <div class="header-subtitle">FC I2 INDORE — Multi-Device Live Attendance System</div>
+    <div><span class="server-status" id="serverStatusText"> Live Server Connected (Auto Sync Active)</span></div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('dailyView', this)"> Home & Department Summary</button>
+    <button class="tab-btn" onclick="switchTab('employeesView', this)"> Employee Master & Custom Shift</button>
+    <button class="tab-btn" onclick="switchTab('reportView', this)"> Shift-Wise Present/Absent Report</button>
+  </div>
+
+  <!-- TAB 1: DAILY ATTENDANCE -->
+  <div id="dailyView" class="view-section active">
+    <!-- HOMEPAGE DASHBOARD -->
+    <div id="homeView">
+      <h3 style="text-align: center; margin-bottom: 12px; color: #444; font-size: 13px;">ALL DEPARTMENTS LIVE SUMMARY (HOME PAGE)</h3>
+      <div class="dashboard-container" id="homeDeptGrid"></div>
+    </div>
+
+    <!-- INSIDE DEPARTMENT VIEW -->
+    <div id="deptView" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: white; padding: 10px; border-radius: 8px; flex-wrap: wrap; gap: 8px;">
+        <button class="btn-main" onclick="showHomeView()"> Back to Home</button>
+        <h2 id="deptTitle" style="margin:0; font-size: 14px;">INBOUND</h2>
+        <input type="date" id="attendanceDate" onchange="renderAttendanceTable()" style="width: auto;">
+      </div>
+
+      <!-- DEPT PUNCH ENTRY CARD -->
+      <div class="card" style="background: #FFFDE7; border-left: 5px solid var(--blinkit-yellow);">
+        <h4 style="margin-top:0;"> Department Quick Punch (ID Enter Karein)</h4>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="deptPunchEmpId" placeholder="Employee ID (jaise BLK-101)" style="flex: 1; min-width: 200px;">
+          <button class="btn-green" onclick="handleDeptInputPunch('IN')"> Punch IN</button>
+          <button class="btn-red" onclick="handleDeptInputPunch('OUT')"> Punch OUT</button>
+        </div>
+      </div>
+
+      <!-- ATTENDANCE TABLE -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h4 style="margin:0;"> Department Attendance & Absent Contacts</h4>
+          <div>
+            <select id="insideStatusFilter" onchange="renderAttendanceTable()" style="padding: 4px;">
+              <option value="ALL">All Department Employees</option>
+              <option value="PRESENT"> Present Only</option>
+              <option value="ABSENT"> Absent Only (Highlight Contacts)</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Emp ID</th>
+                <th>Name & Contact</th>
+                <th>Shift Time & Role</th>
+                <th>Punch In</th>
+                <th>Punch Out</th>
+                <th>Status</th>
+                <th>Action / Direct Punch</th>
+                <th>Reset</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: EMPLOYEE MASTER & CUSTOM SHIFT -->
+  <div id="employeesView" class="view-section">
+    <div class="card" style="max-width: 550px; margin: 0 auto;">
+      <h4 id="empFormTitle"> Add / Update Employee & Custom Shift Time</h4>
+      <input type="hidden" id="editEmpIndex" value="-1">
+      
+      <label>Department:</label>
+      <select id="empDept">
+        <option value="Inbound">Inbound</option>
+        <option value="Outbound">Outbound</option>
+        <option value="Dispatch">Dispatch</option>
+        <option value="Return">Return</option>
+        <option value="Putaway">Putaway</option>
+        <option value="Guard Staff">Guard Staff</option>
+      </select>
+
+      <label>Employee ID:</label>
+      <input type="text" id="newEmpId" placeholder="e.g. BLK-101">
+
+      <label>Full Name:</label>
+      <input type="text" id="newEmpName" placeholder="Employee Name">
+
+      <label>Mobile Number:</label>
+      <input type="tel" id="newEmpMobile" placeholder="9898XXXXXX">
+
+      <label>Shift Name / Title:</label>
+      <input type="text" id="empShiftName" placeholder="e.g. Morning Shift / Shift A">
+
+      <div style="display: flex; gap: 8px;">
+        <div style="flex:1;">
+          <label>Shift Start Time:</label>
+          <input type="time" id="empStartTime" value="06:00">
+        </div>
+        <div style="flex:1;">
+          <label>Shift End Time:</label>
+          <input type="time" id="empEndTime" value="15:00">
+        </div>
+      </div>
+
+      <label>Role:</label>
+      <select id="empRole">
+        <option value="Aggregation">Aggregation</option>
+        <option value="Putaway">Putaway</option>
+        <option value="Team Lead (TL)">Team Lead (TL)</option>
+        <option value="Picker">Picker</option>
+        <option value="Guard">Guard</option>
+      </select>
+
+      <button class="btn-main" style="width: 100%; margin-top: 10px;" onclick="saveEmployee()">Save Employee & Shift Time</button>
+    </div>
+
+    <div class="card" style="margin-top: 15px;">
+      <h4> Master Directory & Shift Controls</h4>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Dept</th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Shift Details (Time)</th>
+              <th>Role</th>
+              <th>Mobile</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="masterEmpTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: REPORTS & EXCEL EXPORT -->
+  <div id="reportView" class="view-section">
+    <div class="card">
+      <h4> Shift-Wise Present & Absent Filter Data</h4>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;">
+        <div>
+          <label>Date:</label>
+          <input type="date" id="reportDate">
+        </div>
+        <div>
+          <label>Status Filter:</label>
+          <select id="reportStatusFilter">
+            <option value="ALL">All (Present + Absent)</option>
+            <option value="PRESENT"> Only Present</option>
+            <option value="ABSENT"> Only Absent</option>
+          </select>
+        </div>
+        <div style="align-self: flex-end;">
+          <button class="btn-green" onclick="generateReport()"> Filter Data</button>
+          <button class="btn-main" onclick="downloadExcel()"> Export Excel</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Dept</th>
+              <th>Emp ID</th>
+              <th>Name</th>
+              <th>Shift Timing</th>
+              <th>Role</th>
+              <th>Contact</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="reportTableBody">
+            <tr><td colspan="10" style="color:#777;">Filter set karein aur data dekhein.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- LIVE RUNNING CLOCK SCRIPT ---
+    function updateLiveClock() {
+      const now = new Date();
+      const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      document.getElementById('liveClockDisplay').innerText = " " + now.toLocaleDateString('en-IN', options);
+    }
+    setInterval(updateLiveClock, 1000);
+    updateLiveClock();
+
+    // --- FIREBASE CONFIGURATION ---
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    const departmentsList = ['Inbound', 'Outbound', 'Dispatch', 'Return', 'Putaway', 'Guard Staff'];
+    let employees = [];
+    let attendanceLogs = {};
+    let currentSelectedDept = '';
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('attendanceDate').value = today;
+    document.getElementById('reportDate').value = today;
+
+    db.ref('employees').on('value', snapshot => {
+      employees = snapshot.val() || [];
+      renderHomeDepartmentCards();
+      renderMasterEmployees();
+      if (currentSelectedDept) renderAttendanceTable();
+    });
+
+    db.ref('attendance').on('value', snapshot => {
+      attendanceLogs = snapshot.val() || {};
+      renderHomeDepartmentCards();
+      if (currentSelectedDept) renderAttendanceTable();
+    });
+
+    function saveEmployeesToCloud() {
+      db.ref('employees').set(employees);
+    }
+
+    function saveAttendanceToCloud() {
+      db.ref('attendance').set(attendanceLogs);
+    }
+
+    function switchTab(viewId, btn) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+      btn.classList.add('active');
+
+      if (viewId === 'dailyView') renderHomeDepartmentCards();
+      if (viewId === 'employeesView') renderMasterEmployees();
+    }
+
+    function isCurrentShiftActive(startTime, endTime) {
+      if (!startTime || !endTime) return false;
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      if (startMinutes <= endMinutes) {
+        return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+      } else {
+        return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+      }
+    }
+
+    function handleDeptInputPunch(type) {
+      const empId = document.getElementById('deptPunchEmpId').value.trim();
+      if (!empId) {
+        alert(' Kripya Employee ID darj karein!');
+        return;
+      }
+
+      const emp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase() && e.dept === currentSelectedDept);
+      if (!emp) {
+        alert(` Yeh Employee ID "${currentSelectedDept}" vibhag me maujood nahi hai!`);
+        return;
+      }
+
+      executePunch(emp.id, type);
+      document.getElementById('deptPunchEmpId').value = '';
+    }
+
+    function executePunch(empId, type) {
+      const selectedDate = document.getElementById('attendanceDate').value;
+      const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      if (!attendanceLogs[selectedDate]) attendanceLogs[selectedDate] = {};
+      if (!attendanceLogs[selectedDate][empId]) {
+        attendanceLogs[selectedDate][empId] = { timeIn: '--:--', timeOut: '--:--' };
+      }
+
+      const record = attendanceLogs[selectedDate][empId];
+
+      if (type === 'IN') {
+        if (record.timeIn !== '--:--') {
+          alert(` IN Punch pahle hi darj hai (${record.timeIn})`);
+          return;
+        }
+        record.timeIn = timeString;
+      } else if (type === 'OUT') {
+        if (record.timeIn === '--:--') {
+          alert(" Pahle Punch IN karein!");
+          return;
+        }
+        record.timeOut = timeString;
+      }
+
+      saveAttendanceToCloud();
+    }
+
+    function resetAttendance(empId) {
+      const selectedDate = document.getElementById('attendanceDate').value;
+      if (attendanceLogs[selectedDate] && attendanceLogs[selectedDate][empId]) {
+        delete attendanceLogs[selectedDate][empId];
+        saveAttendanceToCloud();
+      }
+    }
+
+    function renderHomeDepartmentCards() {
+      const grid = document.getElementById('homeDeptGrid');
+      grid.innerHTML = '';
+      const selectedDate = document.getElementById('attendanceDate').value || today;
+
+      if (!attendanceLogs[selectedDate]) attendanceLogs[selectedDate] = {};
+
+      departmentsList.forEach(dept => {
+        const deptEmps = employees.filter(e => e.dept === dept);
+        let total = deptEmps.length;
+        let present = 0;
+
+        deptEmps.forEach(emp => {
+          const rec = attendanceLogs[selectedDate][emp.id];
+          if (rec && rec.timeIn && rec.timeIn !== '--:--') present++;
+        });
+        let absent = total - present;
+
+        const card = document.createElement('div');
+        card.className = 'dept-card-home';
+        card.onclick = () => openDepartment(dept);
+        card.innerHTML = `
+          <div class="dept-card-title"> ${dept.toUpperCase()} <span></span></div>
+          <div class="dept-card-stats">
+            <span>Total: ${total}</span>
+            <span style="color: var(--blinkit-green);">Present: ${present}</span>
+            <span style="color: var(--blinkit-red);">Absent: ${absent}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openDepartment(deptName) {
+      currentSelectedDept = deptName;
+      document.getElementById('homeView').style.display = 'none';
+      document.getElementById('deptView').style.display = 'block';
+      document.getElementById('deptTitle').innerText = deptName.toUpperCase();
+      renderAttendanceTable();
+    }
+
+    function showHomeView() {
+      document.getElementById('deptView').style.display = 'none';
+      document.getElementById('homeView').style.display = 'block';
+      renderHomeDepartmentCards();
+    }
+
+    function renderAttendanceTable() {
+      const selectedDate = document.getElementById('attendanceDate').value;
+      const statusFilterVal = document.getElementById('insideStatusFilter').value;
+      const tbody = document.getElementById('attendanceTableBody');
+      tbody.innerHTML = '';
+
+      let deptEmployees = employees.filter(e => e.dept === currentSelectedDept);
+
+      if (!attendanceLogs[selectedDate]) attendanceLogs[selectedDate] = {};
+
+      if (statusFilterVal !== 'ALL') {
+        deptEmployees = deptEmployees.filter(emp => {
+          const rec = attendanceLogs[selectedDate][emp.id];
+          const isPresent = rec && rec.timeIn && rec.timeIn !== '--:--';
+          return statusFilterVal === 'PRESENT' ? isPresent : !isPresent;
+        });
+      }
+
+      if (!deptEmployees.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="color:#777; padding: 12px;">Is filter ke anusaar koi karmchari nahi mila.</td></tr>`;
+        return;
+      }
+
+      deptEmployees.forEach(emp => {
+        const record = attendanceLogs[selectedDate][emp.id] || { timeIn: '--:--', timeOut: '--:--' };
+        const isActive = isCurrentShiftActive(emp.startTime, emp.endTime);
+        const isPresent = record.timeIn !== '--:--';
+
+        const tr = document.createElement('tr');
+        if (isActive) tr.classList.add('active-shift-row');
+
+        let contactDisplay = `<a href="tel:${emp.mobile}" class="call-btn"> ${emp.mobile || 'N/A'}</a>`;
+        if (!isPresent) {
+          contactDisplay = `<span style="background:#FFEBEE; padding:2px 6px; border-radius:4px; border:1px solid #FFCDD2; display:inline-block;"><a href="tel:${emp.mobile}" class="call-btn" style="background:var(--blinkit-red);"> ${emp.mobile || 'Call'}</a></span>`;
+        }
+
+        tr.innerHTML = `
+          <td><strong>${emp.id}</strong></td>
+          <td>${emp.name} <br> ${contactDisplay}</td>
+          <td>
+            <span class="shift-tag ${isActive ? 'active-shift-tag' : ''}">${emp.shiftName || 'Shift'} (${emp.startTime || '06:00'} - ${emp.endTime || '15:00'})</span><br>
+            <span class="role-badge">${emp.role}</span>
+          </td>
+          <td>${record.timeIn}</td>
+          <td>${record.timeOut}</td>
+          <td>${isPresent ? '<span style="color:var(--blinkit-green); font-weight:bold;">Present</span>' : '<span style="color:var(--blinkit-red); font-weight:bold;">Absent</span>'}</td>
+          <td>
+            <button class="btn-green" onclick="executePunch('${emp.id}', 'IN')">IN</button>
+            <button class="btn-red" onclick="executePunch('${emp.id}', 'OUT')">OUT</button>
+          </td>
+          <td>
+            <button class="btn-main" style="padding: 3px 6px; font-size:10px;" onclick="resetAttendance('${emp.id}')">Reset</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function saveEmployee() {
+      const dept = document.getElementById('empDept').value;
+      const id = document.getElementById('newEmpId').value.trim();
+      const name = document.getElementById('newEmpName').value.trim();
+      const mobile = document.getElementById('newEmpMobile').value.trim();
+      const shiftName = document.getElementById('empShiftName').value.trim();
+      const startTime = document.getElementById('empStartTime').value;
+      const endTime = document.getElementById('empEndTime').value;
+      const role = document.getElementById('empRole').value;
+      const editIndex = parseInt(document.getElementById('editEmpIndex').value);
+
+      if (!id || !name) {
+        alert('Kripya Employee ID aur Name darj karein!');
+        return;
+      }
+
+      const empData = { dept, id, name, mobile, shiftName, startTime, endTime, role };
+
+      if (editIndex === -1) {
+        if (employees.some(e => e.id.toLowerCase() === id.toLowerCase())) {
+          alert('Yeh Employee ID pahle se maujood hai!');
+          return;
+        }
+        employees.push(empData);
+      } else {
+        employees[editIndex] = empData;
+        document.getElementById('editEmpIndex').value = '-1';
+        document.getElementById('empFormTitle').innerText = 'Add / Update Employee & Custom Shift Time';
+      }
+
+      document.getElementById('newEmpId').value = '';
+      document.getElementById('newEmpName').value = '';
+      document.getElementById('newEmpMobile').value = '';
+      document.getElementById('empShiftName').value = '';
+
+      saveEmployeesToCloud();
+      alert('Employee safaltapoorvak save ho gaya!');
+    }
+
+    function renderMasterEmployees() {
+      const tbody = document.getElementById('masterEmpTableBody');
+      tbody.innerHTML = '';
+
+      if (!employees.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="color:#777;">Koi employee nahi joda gaya hai.</td></tr>`;
+        return;
+      }
+
+      employees.forEach((emp, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${emp.dept}</td>
+          <td><strong>${emp.id}</strong></td>
+          <td>${emp.name}</td>
+          <td><span class="shift-tag">${emp.shiftName || 'Shift'}</span> (${emp.startTime} - ${emp.endTime})</td>
+          <td><span class="role-badge">${emp.role}</span></td>
+          <td>${emp.mobile || 'N/A'}</td>
+          <td>
+            <button class="btn-main" style="padding:3px 8px; font-size:10px;" onclick="editEmployee(${index})">Edit</button>
+            <button class="btn-red" style="padding:3px 8px; font-size:10px;" onclick="deleteEmployee(${index})">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function editEmployee(index) {
+      const emp = employees[index];
+      document.getElementById('empDept').value = emp.dept;
+      document.getElementById('newEmpId').value = emp.id;
+      document.getElementById('newEmpName').value = emp.name;
+      document.getElementById('newEmpMobile').value = emp.mobile || '';
+      document.getElementById('empShiftName').value = emp.shiftName || '';
+      document.getElementById('empStartTime').value = emp.startTime || '06:00';
+      document.getElementById('empEndTime').value = emp.endTime || '15:00';
+      document.getElementById('empRole').value = emp.role;
+      document.getElementById('editEmpIndex').value = index;
+      document.getElementById('empFormTitle').innerText = 'Edit Employee: ' + emp.id;
+      
+      switchTab('employeesView', document.querySelectorAll('.tab-btn')[1]);
+    }
+
+    function deleteEmployee(index) {
+      if (confirm('Kya aap is employee ko hatana chahte hain?')) {
+        employees.splice(index, 1);
+        saveEmployeesToCloud();
+      }
+    }
+
+    function generateReport() {
+      const date = document.getElementById('reportDate').value;
+      const statusFilter = document.getElementById('reportStatusFilter').value;
+      const tbody = document.getElementById('reportTableBody');
+      tbody.innerHTML = '';
+
+      if (!attendanceLogs[date]) attendanceLogs[date] = {};
+
+      let reportData = [];
+      employees.forEach(emp => {
+        const rec = attendanceLogs[date][emp.id] || { timeIn: '--:--', timeOut: '--:--' };
+        const isPresent = rec.timeIn !== '--:--';
+        const status = isPresent ? 'PRESENT' : 'ABSENT';
+
+        if (statusFilter === 'ALL' || statusFilter === status) {
+          reportData.push({
+            date,
+            dept: emp.dept,
+            id: emp.id,
+            name: emp.name,
+            timing: `${emp.shiftName || 'Shift'} (${emp.startTime} - ${emp.endTime})`,
+            role: emp.role,
+            mobile: emp.mobile || 'N/A',
+            timeIn: rec.timeIn,
+            timeOut: rec.timeOut,
+            status
+          });
+        }
+      });
+
+      if (!reportData.length) {
+        tbody.innerHTML = `<tr><td colspan="10" style="color:#777;">Selected filter ke anusaar koi data nahi mila.</td></tr>`;
+        return;
+      }
+
+      reportData.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.date}</td>
+          <td>${row.dept}</td>
+          <td><strong>${row.id}</strong></td>
+          <td>${row.name}</td>
+          <td>${row.timing}</td>
+          <td>${row.role}</td>
+          <td>${row.mobile}</td>
+          <td>${row.timeIn}</td>
+          <td>${row.timeOut}</td>
+          <td><strong style="color:${row.status === 'PRESENT' ? 'var(--blinkit-green)' : 'var(--blinkit-red)'};">${row.status}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadExcel() {
+      const date = document.getElementById('reportDate').value;
+      const statusFilter = document.getElementById('reportStatusFilter').value;
+      
+      if (!attendanceLogs[date]) attendanceLogs[date] = {};
+
+      let excelRows = [];
+      employees.forEach(emp => {
+        const rec = attendanceLogs[date][emp.id] || { timeIn: '--:--', timeOut: '--:--' };
+        const isPresent = rec.timeIn !== '--:--';
+        const status = isPresent ? 'PRESENT' : 'ABSENT';
+
+        if (statusFilter === 'ALL' || statusFilter === status) {
+          excelRows.push({
+            'Date': date,
+            'Department': emp.dept,
+            'Employee ID': emp.id,
+            'Employee Name': emp.name,
+            'Shift Timing': `${emp.shiftName || 'Shift'} (${emp.startTime} - ${emp.endTime})`,
+            'Role': emp.role,
+            'Mobile': emp.mobile || 'N/A',
+            'Time In': rec.timeIn,
+            'Time Out': rec.timeOut,
+            'Status': status
+          });
+        }
+      });
+
+      if (!excelRows.length) {
+        alert('Export karne ke liye koi data available nahi hai!');
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(excelRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
+      XLSX.writeFile(workbook, `Blinkit_Attendance_${date}.xlsx`);
+    }
+  </script>
+</body>
+</html>
