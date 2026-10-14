@@ -26,7 +26,7 @@
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: var(--blinkit-light); margin: 0; padding: 12px; color: var(--blinkit-dark); }
 
-    /* PERFECT HEADER DESIGN */
+    /* HEADER DESIGN */
     header {
       background: var(--blinkit-yellow);
       color: var(--blinkit-dark);
@@ -129,7 +129,7 @@
     .view-section { display: none; }
     .view-section.active { display: block; }
 
-    /* DASHBOARD GRID (HOMEPAGE) */
+    /* DASHBOARD GRID */
     .dashboard-container { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
     .dept-card-home { background: white; border: 1px solid var(--border-color); border-left: 6px solid var(--blinkit-yellow); padding: 16px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
     .dept-card-home:hover { transform: translateY(-3px); border-left-color: var(--blinkit-green); }
@@ -201,7 +201,7 @@
 
       <!-- DEPT PUNCH ENTRY CARD -->
       <div class="card" style="background: #FFFDE7; border-left: 5px solid var(--blinkit-yellow);">
-        <h4 style="margin-top:0;">Department Quick Punch</h4>
+        <h4 style="margin-top:0;">Department Quick Punch (Emp ID dalkar Punch karein)</h4>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <input type="text" id="deptPunchEmpId" placeholder="Employee ID (e.g. BLK-101)" style="flex: 1; min-width: 200px;">
           <button class="btn-green" onclick="handleDeptInputPunch('IN')">Punch IN</button>
@@ -330,21 +330,26 @@
   <!-- TAB 3: REPORTS & EXCEL EXPORT -->
   <div id="reportView" class="view-section">
     <div class="card">
-      <h4>Shift-Wise & 4-Off Monthly Report Filter</h4>
+      <h4>Shift-Wise, Monthly 4-Off Summary & Single Employee History</h4>
       <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: flex-end;">
         <div>
-          <label>Date / Month Selection:</label>
+          <label>Select Date / Month:</label>
           <input type="date" id="reportDate">
         </div>
         <div>
           <label>Filter Type:</label>
-          <select id="reportStatusFilter">
+          <select id="reportStatusFilter" onchange="toggleReportEmployeeInput()">
             <option value="ALL">All Daily Records</option>
             <option value="PRESENT">Only Present</option>
             <option value="ABSENT">Only Absent</option>
             <option value="OFF">Weekly Offs</option>
-            <option value="MONTHLY_SUMMARY">Monthly 4-Off Summary</option>
+            <option value="MONTHLY_SUMMARY">Monthly 4-Off Summary (26 Duty Check)</option>
+            <option value="EMPLOYEE_HISTORY">Single Employee Full History</option>
           </select>
+        </div>
+        <div id="empHistoryInputDiv" style="display: none; flex: 1; min-width: 180px;">
+          <label>Employee ID:</label>
+          <input type="text" id="reportEmpId" placeholder="e.g. BLK-101">
         </div>
         <div>
           <button class="btn-green" onclick="generateReport()">Filter Data</button>
@@ -384,6 +389,7 @@
     setInterval(updateLiveClock, 1000);
     updateLiveClock();
 
+    // Firebase Credentials (replace with your Firebase project config)
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -408,6 +414,7 @@
     document.getElementById('attendanceDate').value = today;
     document.getElementById('reportDate').value = today;
 
+    // Real-time Database Listeners
     db.ref('employees').on('value', snapshot => {
       employees = snapshot.val() || [];
       renderHomeDepartmentCards();
@@ -436,7 +443,7 @@
 
     function getDayName(dateStr) {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { weekday: 'Long' });
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
     }
 
     function openDepartment(dept) {
@@ -473,7 +480,7 @@
         card.className = 'dept-card-home';
         card.onclick = () => openDepartment(dept);
         card.innerHTML = `
-          <div class="dept-card-title">${dept.toUpperCase()} <span></span></div>
+          <div class="dept-card-title">${dept.toUpperCase()} <span></span></div>
           <div class="dept-card-stats">
             <span>Total: ${total}</span>
             <span style="color: var(--blinkit-green);">Present: ${present}</span>
@@ -530,14 +537,21 @@
 
     function handleDeptInputPunch(type) {
       const empId = document.getElementById('deptPunchEmpId').value.trim();
-      if (!empId) { alert('Employee ID bharein!'); return; }
-      executePunch(empId, type);
+      if (!empId) { alert('Kripya Employee ID bharein!'); return; }
+      
+      const found = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
+      if (!found) {
+        alert('Ye Employee ID Master list me nahi mili! Pehle Employee Master me add karein.');
+        return;
+      }
+
+      executePunch(found.id, type);
       document.getElementById('deptPunchEmpId').value = '';
     }
 
     function executePunch(empId, type) {
       const selectedDate = document.getElementById('attendanceDate').value;
-      const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
       if (!attendanceLogs[selectedDate]) attendanceLogs[selectedDate] = {};
       if (!attendanceLogs[selectedDate][empId]) {
@@ -548,7 +562,8 @@
       if (type === 'OUT') attendanceLogs[selectedDate][empId].timeOut = timeString;
 
       saveAttendanceToCloud();
-      renderAttendanceTable();
+      if (currentSelectedDept) renderAttendanceTable();
+      alert(`Employee ${empId} set to Punch ${type} at ${timeString}`);
     }
 
     function resetAttendance(empId) {
@@ -571,7 +586,7 @@
       const endTime = document.getElementById('empEndTime').value;
       const role = document.getElementById('empRole').value;
 
-      if (!id || !name) { alert("ID and Name zero zaroori hain!"); return; }
+      if (!id || !name) { alert("ID aur Name bharna anivarya hai!"); return; }
 
       const empData = { id, name, mobile, dept, weeklyOff, shiftName, startTime, endTime, role };
       const index = parseInt(document.getElementById('editEmpIndex').value);
@@ -585,7 +600,7 @@
 
       saveEmployeesToCloud();
       renderMasterEmployees();
-      alert("Employee saved successfully!");
+      alert("Employee profile updated successfully!");
     }
 
     function renderMasterEmployees() {
@@ -625,10 +640,20 @@
     }
 
     function deleteEmp(index) {
-      if (confirm("Kiya aap ise delete karna chahte hain?")) {
+      if (confirm("Kiya aap is employee ko delete karna chahte hain?")) {
         employees.splice(index, 1);
         saveEmployeesToCloud();
         renderMasterEmployees();
+      }
+    }
+
+    function toggleReportEmployeeInput() {
+      const filter = document.getElementById('reportStatusFilter').value;
+      const inputDiv = document.getElementById('empHistoryInputDiv');
+      if (filter === 'EMPLOYEE_HISTORY') {
+        inputDiv.style.display = 'block';
+      } else {
+        inputDiv.style.display = 'none';
       }
     }
 
@@ -640,19 +665,73 @@
 
       tbody.innerHTML = '';
 
-      if (filter === 'MONTHLY_SUMMARY') {
-        // Render 4-Off Summary Report
+      if (filter === 'EMPLOYEE_HISTORY') {
+        const searchEmpId = document.getElementById('reportEmpId').value.trim();
+        if (!searchEmpId) { alert("Kripya Employee ID darj karein!"); return; }
+
+        const emp = employees.find(e => e.id.toLowerCase() === searchEmpId.toLowerCase());
+        if (!emp) { alert("Ye Employee ID nahi mili!"); return; }
+
+        header.innerHTML = `
+          <tr>
+            <th>Date</th>
+            <th>Emp ID</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Weekly Off</th>
+            <th>Time In</th>
+            <th>Time Out</th>
+            <th>Status</th>
+          </tr>
+        `;
+
+        const [year, month] = dateVal.split('-');
+
+        Object.keys(attendanceLogs).forEach(d => {
+          if (d.startsWith(`${year}-${month}`)) {
+            const rec = attendanceLogs[d][emp.id];
+            const dName = getDayName(d);
+            const isDefaultOff = emp.weeklyOff && emp.weeklyOff.toLowerCase() === dName.toLowerCase();
+
+            let status = 'ABSENT';
+            let timeIn = '--:--';
+            let timeOut = '--:--';
+
+            if (rec && rec.timeIn && rec.timeIn !== '--:--') {
+              status = 'PRESENT';
+              timeIn = rec.timeIn;
+              timeOut = rec.timeOut || '--:--';
+            } else if (isDefaultOff) {
+              status = 'WEEKLY OFF';
+            }
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${d}</td>
+              <td><b>${emp.id}</b></td>
+              <td>${emp.name}</td>
+              <td>${emp.dept}</td>
+              <td>${emp.weeklyOff || 'Sunday'}</td>
+              <td>${timeIn}</td>
+              <td>${timeOut}</td>
+              <td><b>${status}</b></td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+
+      } else if (filter === 'MONTHLY_SUMMARY') {
         header.innerHTML = `
           <tr>
             <th>Dept</th>
             <th>Emp ID</th>
             <th>Name</th>
             <th>Weekly Off Day</th>
-            <th>Presents</th>
+            <th>Presents (26 Duty Check)</th>
             <th>Total Offs Taken</th>
             <th>Default Offs</th>
             <th>Extra Absent</th>
-            <th>4-Off Limit Status</th>
+            <th>4-Off Status</th>
           </tr>
         `;
 
@@ -687,7 +766,7 @@
             <td><b>${emp.id}</b></td>
             <td>${emp.name}</td>
             <td>${emp.weeklyOff || 'Sunday'}</td>
-            <td>${presentCount} Days</td>
+            <td><b>${presentCount} Days</b></td>
             <td><b>${offCount} Offs</b></td>
             <td>4 Planned</td>
             <td>${extraAbsentCount} Days</td>
@@ -697,7 +776,6 @@
         });
 
       } else {
-        // Daily Attendance Filter Report
         header.innerHTML = `
           <tr>
             <th>Date</th>
